@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mapa Interactivo - Estructura Completa con WGroup</title>
+    <style>
+      /* Centrado para vistas responsivas */
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: #f9f9f9;
+      }
+      #map-container {
+        text-align: center;
+        padding: 20px;
+      }
+      svg {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+        border: 1px solid #ccc;
+        background-color: #fff;
+      }
+      /* Estilos comunes para módulos y grupos */
+      .module {
+        fill: #e0e0e0;
+        stroke: #333;
+        cursor: pointer;
+      }
+      .module:hover {
+        fill: #d0d0d0;
+      }
+      /* Estilos para los pasillos */
+      .corridor {
+        fill: #b0c4de;
+        stroke: #333;
+      }
+      text {
+        font-size: 12px;
+        fill: #333;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map-container">
+      <h1>
+        Mapa Interactivo: Stands, Pasillos, YGroup, XGroup, AGroup, BGroup, Z1,
+        y nuevas instancias
+      </h1>
+      <!--
+           La configuración general es la siguiente:
+           • Cuadrícula de stands: 18 módulos de 46.25px + 17 espacios de 30px = 1342.5px.
+           • En la parte inferior se ubican pasillos y la cuadrícula:
+             - Pasillo D: de y = 0 a 30.
+             - Fila 1 de stands: de y = 30 a 76.75.
+             - Pasillo C: de y = 76.75 a 106.75.
+             - Fila 2 de stands: de y = 106.75 a 153.5.
+             - Pasillo B: de y = 153.5 a 183.5.
+             - Fila 3 de stands: de y = 183.5 a 230.25.
+             - Pasillo A: de y = 230.25 a 260.25.
+           • Los grupos se ubican "encima" del pasillo D (borde inferior en y = 0) usando transformaciones negativas.
+      -->
+      <svg
+        id="mapModules"
+        width="1342.5"
+        height="400.5"
+        viewBox="0 -140.75 1342.5 400.5"
+      >
+        <!-- Elementos generados dinámicamente -->
+      </svg>
+    </div>
+    <script>
+      // =============================
+      // Cuadrícula de stands (18 x 3)
+      // =============================
+      const standModuleWidth = 46.25;
+      const standModuleHeight = 46.75;
+      const standSpacing = 30;
+      const cols = 18;
+      const rows = 3;
+      const standsTotalWidth =
+        cols * standModuleWidth + (cols - 1) * standSpacing;
+
+      // =============================
+      // Parámetros para los pasillos (30px de alto)
+      // =============================
+      const corridorHeight = 30;
+      const corridorD = { label: "D", y: 0, height: corridorHeight };
+      const standsRow1_y = corridorD.y + corridorD.height; // 30
+      const corridorC = {
+        label: "C",
+        y: standsRow1_y + standModuleHeight,
+        height: corridorHeight,
+      };
+      const standsRow2_y = corridorC.y + corridorC.height;
+      const corridorB = {
+        label: "B",
+        y: standsRow2_y + standModuleHeight,
+        height: corridorHeight,
+      };
+      const standsRow3_y = corridorB.y + corridorB.height;
+      const corridorA = {
+        label: "A",
+        y: standsRow3_y + standModuleHeight,
+        height: corridorHeight,
+      };
+      const corridorsArr = [corridorD, corridorC, corridorB, corridorA];
+
+      const svg = document.getElementById("mapModules");
+
+      // Dibujar pasillos
+      corridorsArr.forEach((corridor) => {
+        const rect = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "rect"
+        );
+        rect.setAttribute("x", 0);
+        rect.setAttribute("y", corridor.y);
+        rect.setAttribute("width", standsTotalWidth);
+        rect.setAttribute("height", corridor.height);
+        rect.setAttribute("class", "corridor");
+        const text = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "text"
+        );
+        text.setAttribute("x", standsTotalWidth / 2);
+        text.setAttribute("y", corridor.y + corridor.height / 2 + 4);
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = "Pasillo " + corridor.label;
+        svg.appendChild(rect);
+        svg.appendChild(text);
+      });
+
+      // Dibujar cuadrícula de stands
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = c * (standModuleWidth + standSpacing);
+          const y = [standsRow1_y, standsRow2_y, standsRow3_y][r];
+          const moduleName = ["A", "B", "C"][r] + (c + 1);
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", x);
+          rect.setAttribute("y", y);
+          rect.setAttribute("width", standModuleWidth);
+          rect.setAttribute("height", standModuleHeight);
+          rect.setAttribute("class", "module");
+          rect.addEventListener("click", () => {
+            alert("Stand " + moduleName + " seleccionado.");
+          });
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", x + standModuleWidth / 2);
+          text.setAttribute("y", y + standModuleHeight / 2 + 4);
+          text.setAttribute("text-anchor", "middle");
+          text.textContent = moduleName;
+          svg.appendChild(rect);
+          svg.appendChild(text);
+        }
+      }
+
+      // =============================
+      // Funciones para dibujar grupos existentes
+      // (YGroup, XGroup, AGroup, BGroup, Z1, etc.)
+      // =============================
+
+      function drawYGroup(xGroup, yGroup, nameOffset = 0) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const yModuleWidth = 23.375;
+        const yModuleHeightTall = 58.4375;
+        const yModuleHeightShort = 23.375;
+        const yModules = [
+          {
+            nameIndex: 1,
+            x: 0,
+            y: 0,
+            width: yModuleWidth,
+            height: yModuleHeightTall,
+          },
+          {
+            nameIndex: 2,
+            x: yModuleWidth,
+            y: 0,
+            width: yModuleWidth,
+            height: yModuleHeightTall,
+          },
+          {
+            nameIndex: 3,
+            x: 0,
+            y: yModuleHeightTall,
+            width: yModuleWidth,
+            height: yModuleHeightShort,
+          },
+          {
+            nameIndex: 4,
+            x: yModuleWidth,
+            y: yModuleHeightTall,
+            width: yModuleWidth,
+            height: yModuleHeightShort,
+          },
+          {
+            nameIndex: 5,
+            x: 0,
+            y: yModuleHeightTall + yModuleHeightShort,
+            width: yModuleWidth,
+            height: yModuleHeightTall,
+          },
+          {
+            nameIndex: 6,
+            x: yModuleWidth,
+            y: yModuleHeightTall + yModuleHeightShort,
+            width: yModuleWidth,
+            height: yModuleHeightTall,
+          },
+        ];
+        yModules.forEach((mod) => {
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", mod.x);
+          rect.setAttribute("y", mod.y);
+          rect.setAttribute("width", mod.width);
+          rect.setAttribute("height", mod.height);
+          rect.setAttribute("class", "module");
+          rect.addEventListener("click", () => {
+            alert(
+              "Módulo " +
+                ("Y" + (mod.nameIndex + nameOffset)) +
+                " seleccionado en YGroup."
+            );
+          });
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", mod.x + mod.width / 2);
+          text.setAttribute("y", mod.y + mod.height / 2 + 4);
+          text.setAttribute("text-anchor", "middle");
+          text.textContent = "Y" + (mod.nameIndex + nameOffset);
+          group.appendChild(rect);
+          group.appendChild(text);
+        });
+        return group;
+      }
+
+      function drawXGroup(xGroup, yGroup) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const groupWidth = 46.75;
+        const floor1Width = 46.25;
+        const floor1Height = 58.9345;
+        const floor2Width = 23.375;
+        const floor2Height = 23.375;
+        const floor3Width = 23.375;
+        const floor3Height = 58.4375;
+        const floor1OffsetX = (groupWidth - floor1Width) / 2;
+        const xModules = [];
+        xModules.push({
+          name: "X4",
+          x: 0,
+          y: 0,
+          width: floor3Width,
+          height: floor3Height,
+        });
+        xModules.push({
+          name: "X5",
+          x: floor3Width,
+          y: 0,
+          width: floor3Width,
+          height: floor3Height,
+        });
+        xModules.push({
+          name: "X2",
+          x: 0,
+          y: floor3Height,
+          width: floor2Width,
+          height: floor2Height,
+        });
+        xModules.push({
+          name: "X3",
+          x: floor2Width,
+          y: floor3Height,
+          width: floor2Width,
+          height: floor2Height,
+        });
+        xModules.push({
+          name: "X1",
+          x: floor1OffsetX,
+          y: floor3Height + floor2Height,
+          width: floor1Width,
+          height: floor1Height,
+        });
+        xModules.forEach((mod) => {
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", mod.x);
+          rect.setAttribute("y", mod.y);
+          rect.setAttribute("width", mod.width);
+          rect.setAttribute("height", mod.height);
+          rect.setAttribute("class", "module");
+          rect.addEventListener("click", () => {
+            alert("Módulo " + mod.name + " seleccionado en XGroup.");
+          });
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", mod.x + mod.width / 2);
+          text.setAttribute("y", mod.y + mod.height / 2 + 4);
+          text.setAttribute("text-anchor", "middle");
+          text.textContent = mod.name;
+          group.appendChild(rect);
+          group.appendChild(text);
+        });
+        return group;
+      }
+
+      function drawAGroup(xGroup, yGroup) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const groupWidth = 46.75;
+        const thirdFloorWidth = 46.25;
+        const thirdFloorHeight = 58.9345;
+        const thirdFloorOffsetX = (groupWidth - thirdFloorWidth) / 2;
+        const secondFloorWidth = 23.375;
+        const secondFloorHeight = 23.375;
+        const firstFloorWidth = 23.375;
+        const firstFloorHeight = 58.4375;
+        const aModules = [];
+        aModules.push({
+          name: "A5",
+          x: thirdFloorOffsetX,
+          y: 0,
+          width: thirdFloorWidth,
+          height: thirdFloorHeight,
+        });
+        aModules.push({
+          name: "A3",
+          x: 0,
+          y: thirdFloorHeight,
+          width: secondFloorWidth,
+          height: secondFloorHeight,
+        });
+        aModules.push({
+          name: "A4",
+          x: secondFloorWidth,
+          y: thirdFloorHeight,
+          width: secondFloorWidth,
+          height: secondFloorHeight,
+        });
+        const firstFloorY = thirdFloorHeight + secondFloorHeight;
+        aModules.push({
+          name: "A1",
+          x: 0,
+          y: firstFloorY,
+          width: firstFloorWidth,
+          height: firstFloorHeight,
+        });
+        aModules.push({
+          name: "A2",
+          x: firstFloorWidth,
+          y: firstFloorY,
+          width: firstFloorWidth,
+          height: firstFloorHeight,
+        });
+        aModules.forEach((mod) => {
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", mod.x);
+          rect.setAttribute("y", mod.y);
+          rect.setAttribute("width", mod.width);
+          rect.setAttribute("height", mod.height);
+          rect.setAttribute("class", "module");
+          rect.addEventListener("click", () => {
+            alert("Módulo " + mod.name + " seleccionado en AGroup.");
+          });
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", mod.x + mod.width / 2);
+          text.setAttribute("y", mod.y + mod.height / 2 + 4);
+          text.setAttribute("text-anchor", "middle");
+          text.textContent = mod.name;
+          group.appendChild(rect);
+          group.appendChild(text);
+        });
+        return group;
+      }
+
+      function drawBGroup(xGroup, yGroup) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const groupWidth = 46.75;
+        const topFloorWidth = 46.25;
+        const topFloorHeight = 58.9345;
+        const topFloorOffsetX = (groupWidth - topFloorWidth) / 2;
+        const middleFloorWidth = 23.375;
+        const middleFloorHeight = 23.375;
+        const bottomFloorWidth = 46.25;
+        const bottomFloorHeight = 58.9345;
+        const bottomFloorOffsetX = (groupWidth - bottomFloorWidth) / 2;
+        const moduleTop = {
+          name: "B1",
+          x: topFloorOffsetX,
+          y: 0,
+          width: topFloorWidth,
+          height: topFloorHeight,
+        };
+        const moduleMiddleLeft = {
+          name: "B2",
+          x: 0,
+          y: topFloorHeight,
+          width: middleFloorWidth,
+          height: middleFloorHeight,
+        };
+        const moduleMiddleRight = {
+          name: "B3",
+          x: middleFloorWidth,
+          y: topFloorHeight,
+          width: middleFloorWidth,
+          height: middleFloorHeight,
+        };
+        const moduleBottom = {
+          name: "B4",
+          x: bottomFloorOffsetX,
+          y: topFloorHeight + middleFloorHeight,
+          width: bottomFloorWidth,
+          height: bottomFloorHeight,
+        };
+        [moduleTop, moduleMiddleLeft, moduleMiddleRight, moduleBottom].forEach(
+          (mod) => {
+            const rect = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "rect"
+            );
+            rect.setAttribute("x", mod.x);
+            rect.setAttribute("y", mod.y);
+            rect.setAttribute("width", mod.width);
+            rect.setAttribute("height", mod.height);
+            rect.setAttribute("class", "module");
+            rect.addEventListener("click", () => {
+              alert("Módulo " + mod.name + " seleccionado en BGroup.");
+            });
+            const text = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "text"
+            );
+            text.setAttribute("x", mod.x + mod.width / 2);
+            text.setAttribute("y", mod.y + mod.height / 2 + 4);
+            text.setAttribute("text-anchor", "middle");
+            text.textContent = mod.name;
+            group.appendChild(rect);
+            group.appendChild(text);
+          }
+        );
+        return group;
+      }
+
+      function drawZModule(xGroup, yGroup) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const zWidth = 46.25;
+        const zHeight = 163;
+        const rect = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "rect"
+        );
+        rect.setAttribute("x", 0);
+        rect.setAttribute("y", 0);
+        rect.setAttribute("width", zWidth);
+        rect.setAttribute("height", zHeight);
+        rect.setAttribute("class", "module");
+        rect.addEventListener("click", () => {
+          alert("Módulo Z1 seleccionado.");
+        });
+        const text = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "text"
+        );
+        const textX = zWidth / 2;
+        const textY = zHeight / 2 + 4;
+        text.setAttribute("x", textX);
+        text.setAttribute("y", textY);
+        text.setAttribute("text-anchor", "middle");
+        text.textContent = "Z1";
+        group.appendChild(rect);
+        group.appendChild(text);
+        return group;
+      }
+
+      // Nueva función: dibujar WGroup
+      // WGroup se compone de dos pisos:
+      //   • El segundo piso (superior): un módulo de 46.25px x 58.9345px, asignado el nombre "W2".
+      //   • El primer piso (inferior): un módulo de 46.25px x 81.8125px, asignado el nombre "W1".
+      // Calculamos la altura total: 58.9345 + 81.8125 = 140.747px.
+      // Ambos módulos se centran horizontalmente en un ancho total de 46.75px (offset = 0.25).
+      function drawWGroup(xGroup, yGroup) {
+        const group = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "g"
+        );
+        // Ubicación: aplicar transformación para que el borde inferior toque y = 0.
+        group.setAttribute("transform", `translate(${xGroup}, ${yGroup})`);
+        const groupWidth = 46.75;
+        const moduleWidth = 46.25;
+        const offsetX = (groupWidth - moduleWidth) / 2; // 0.25
+
+        // Posiicones internas:
+        // Dibujamos primero el módulo del piso superior (segundo piso) en y = 0, con altura 58.9345, y lo nombramos "W2".
+        // Luego, debajo, el módulo del piso inferior (primer piso) en y = 58.9345, de altura 81.8125, nombrado "W1".
+        const topModule = {
+          name: "W2",
+          x: offsetX,
+          y: 0,
+          width: moduleWidth,
+          height: 58.9345,
+        };
+        const bottomModule = {
+          name: "W1",
+          x: offsetX,
+          y: topModule.height, // 58.9345
+          width: moduleWidth,
+          height: 81.8125,
+        };
+        [topModule, bottomModule].forEach((mod) => {
+          const rect = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          rect.setAttribute("x", mod.x);
+          rect.setAttribute("y", mod.y);
+          rect.setAttribute("width", mod.width);
+          rect.setAttribute("height", mod.height);
+          rect.setAttribute("class", "module");
+          rect.addEventListener("click", () => {
+            alert("Módulo " + mod.name + " seleccionado en WGroup.");
+          });
+          const text = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "text"
+          );
+          text.setAttribute("x", mod.x + mod.width / 2);
+          text.setAttribute("y", mod.y + mod.height / 2 + 4);
+          text.setAttribute("text-anchor", "middle");
+          text.textContent = mod.name;
+          group.appendChild(rect);
+          group.appendChild(text);
+        });
+        return group;
+      }
+
+      // ===================================================
+      // Ubicación de los grupos "encima" del pasillo D (borde inferior en y = 0)
+      // (Estas líneas mantienen la estructura desarrollada previamente)
+
+      const yGroupInst = drawYGroup(0, -140.25, 0); // Y1–Y6
+      svg.appendChild(yGroupInst);
+
+      const xGroupInst = drawXGroup(76.75, -140.747); // XGroup (primera)
+      svg.appendChild(xGroupInst);
+
+      const secondYGroup = drawYGroup(153.5, -140.25, 6); // Y7–Y12
+      svg.appendChild(secondYGroup);
+
+      const aGroup = drawAGroup(230.25, -140.747); // AGroup
+      svg.appendChild(aGroup);
+
+      const thirdYGroup = drawYGroup(307, -140.25, 12); // Y13–Y18
+      svg.appendChild(thirdYGroup);
+
+      const fourthYGroup = drawYGroup(383.75, -140.25, 18); // Y19–Y24
+      svg.appendChild(fourthYGroup);
+
+      const fifthYGroup = drawYGroup(460.5, -140.25, 24); // Y25–Y30
+      svg.appendChild(fifthYGroup);
+
+      const sixthYGroup = drawYGroup(537.25, -140.25, 30); // Y31–Y36
+      svg.appendChild(sixthYGroup);
+
+      const bGroup = drawBGroup(614, -141.244); // BGroup (primera, B1–B4)
+      svg.appendChild(bGroup);
+
+      const seventhYGroup = drawYGroup(690.75, -140.25, 36); // Y37–Y42
+      svg.appendChild(seventhYGroup);
+
+      const eighthYGroup = drawYGroup(767.5, -140.25, 42); // Y43–Y48
+      svg.appendChild(eighthYGroup);
+
+      const zModule = drawZModule(844.25, -163); // Z1
+      svg.appendChild(zModule);
+
+      const ninthYGroup = drawYGroup(920.5, -140.25, 48); // Y49–Y54
+      svg.appendChild(ninthYGroup);
+
+      const secondBGroup = drawBGroup(997.25, -141.244); // Segunda instancia BGroup
+      svg.appendChild(secondBGroup);
+
+      const newXGroup = drawXGroup(1074, -140.747); // Segunda instancia XGroup
+      svg.appendChild(newXGroup);
+
+      // -------------------------------
+      // Agregar la nueva instancia de WGroup
+      // Se ubicará a la derecha de la segunda XGroup.
+      // La segunda XGroup está en x = 1074 y su ancho es 46.75, por lo que su extremo derecho es 1120.75.
+      // Con separación de 30px: x = 1120.75 + 30 = 1150.75.
+      // Utilizamos la transformación vertical de -140.747 (ya que la altura total de WGroup es 140.747).
+      const wGroup = drawWGroup(1150.75, -140.747);
+      svg.appendChild(wGroup);
+    </script>
+  </body>
+</html>
